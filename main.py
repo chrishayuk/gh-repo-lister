@@ -42,39 +42,49 @@ def save_output(all_repos, sub_directory):
 
 def main():
     args = get_arguments()
-    
     config, secrets = load_configuration()
     curated_list_paths = config['CURATED_LISTS'] if 'CURATED_LISTS' in config else {}
 
     if args.curated and not curated_list_paths:
         raise ValueError("Please provide the path to your curated list using --list-path argument or configure it in the .ini file.")
     
-    # Extract configurations
     output_directory = config['OUTPUT']["OUTPUT_DIRECTORY"]
     num_results = int(config['GITHUB']['NUM_RESULTS'])
     sort_by = config['GITHUB']['SORT_BY']
     order = config['GITHUB']['ORDER']
     licenses = [license.strip() for license in config['GITHUB']['LICENSES'].split(',') if license.strip()]
     language_term_pairs = get_language_term_pairs(config)
-    curated_list_paths = config['CURATED_LISTS'] if 'CURATED_LISTS' in config else {}
     TOKEN = secrets['DEFAULT']['token']
+
+    unique_orgs = set()
 
     if args.curated:
         for language, curated_list_path in curated_list_paths.items():
             all_repos = get_curated_repos_data(curated_list_path, TOKEN)
+            local_unique_orgs = set()  # for each language
             for repo in all_repos:
                 repo['language'] = language
+                if 'org' in repo:
+                    local_unique_orgs.add(repo['org'])
             language_directory = setup_sub_directory(output_directory, language)
             curated_directory = setup_sub_directory(language_directory, "curated")
             save_output(all_repos, curated_directory)
+            
+            # Save org and provider surql files inside the loop
+            surql_directory_curated = os.path.join(curated_directory, "surql")
+            if os.path.exists(surql_directory_curated):
+                save_repo_providers_surql(surql_directory_curated)
+                save_repo_org_surql_to_file(surql_directory_curated, local_unique_orgs)
     else:
         for language, terms in language_term_pairs.items():
             all_repos = fetch_repos_for_language(language, terms, licenses, sort_by, order, num_results, TOKEN)
+            for repo in all_repos:
+                if 'org' in repo:
+                    unique_orgs.add(repo['org'])
             language_directory = setup_sub_directory(output_directory, language)
             search_directory = setup_sub_directory(language_directory, "search")
             save_output(all_repos, search_directory)
-    
-    unique_orgs = {repo['org'] for repo in all_repos if 'org' in repo}
+
     for language in language_term_pairs.keys():
         language_directory = os.path.join(output_directory, language)
         surql_directory_search = os.path.join(language_directory, "search", "surql")
