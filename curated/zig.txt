@@ -1,0 +1,5 @@
+https://github.com/Sobeston/ziglearn
+https://github.com/coderloff/zig-tutorial
+https://github.com/ratfactor/ziglings
+https://github.com/exercism/zig
+https://github.com/chrishayuk/zig-wasm
